@@ -47,26 +47,20 @@ end
 -- you can now `rw id_def` to change `id x` into `x`
 
 /-- The identity function is injective -/
-lemma injective_id : injective (id : X → X) :=
-begin
-  sorry,
-end
+lemma injective_id : injective (id : X → X) := λ a b h, h
 
 -- function composition g ∘ f is satisfies (g ∘ f) (x) = g(f(x)). This
 -- is true by definition. Let's check this
 
-lemma comp_def : (g ∘ f) x = g (f x) :=
-begin
-  -- true by definition
-  refl
-end
+lemma comp_def : (g ∘ f) x = g (f x) := rfl
 
 /-- Composite of two injective functions is injective -/
 lemma injective_comp (hf : injective f) (hg : injective g) : injective (g ∘ f) :=
 begin
   -- you could start with `rw injective_def at *` if you like.
   -- In some sense it doesn't do anything, but it might make you happier.
-  sorry,
+  rw injective_def at *,
+  exact λ a b ha, hf _ _ (hg _ _ ha),
 end
 
 /-!
@@ -77,18 +71,10 @@ end
 
 -- Let's start by checking the definition of surjectivity is what we think it is
 
-lemma surjective_def : surjective f ↔ ∀ y : Y, ∃ x : X, f x = y :=
-begin
-  -- true by definition
-  refl
-end
+lemma surjective_def : surjective f ↔ ∀ y : Y, ∃ x : X, f x = y := by refl
 
 /-- The identity function is surjective -/
-lemma surjective_id : surjective (id : X → X) :=
-begin
-  -- you can start with `rw surjective_def` if you like.
-  sorry,
-end
+lemma surjective_id : surjective (id : X → X) := λ y, ⟨y, rfl⟩
 
 -- If you started with `rw surjective_def` -- try deleting it.
 -- Probably your proof still works! This is because
@@ -99,7 +85,10 @@ end
 /-- Composite of two surjective functions is surjective -/
 lemma surjective_comp (hf : surjective f) (hg : surjective g) : surjective (g ∘ f) :=
 begin
-  sorry,
+  intro y,
+  rcases hg y with ⟨z, rfl⟩,
+  rcases hf z with ⟨x, rfl⟩,
+  exact ⟨x, rfl⟩,
 end
 
 /-!
@@ -121,15 +110,10 @@ end
 -- proofs very short.
 
 /-- The identity function is bijective. -/
-lemma bijective_id : bijective (id : X → X) :=
-begin
-  sorry,
-end
+lemma bijective_id : bijective (id : X → X) := ⟨injective_id, surjective_id⟩ 
 
 /-- A composite of bijective functions is bijective. -/
 lemma bijective_comp (hf : bijective f) (hg : bijective g) : bijective (g ∘ f) :=
-begin
-  sorry,
-end
+  ⟨injective_comp hf.1 hg.1, surjective_comp hf.2 hg.2⟩  
 
 end xena
