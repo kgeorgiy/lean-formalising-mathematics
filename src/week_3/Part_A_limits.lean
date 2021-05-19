@@ -120,7 +120,7 @@ begin
   intros ε εpos,
   -- we need to come up with some N such that n ≥ N implies |c - c| < ε.
   -- We have some flexibility here :-)
-  use 37,
+  use 0,
   -- Now assume n is a natural which is at least 37, but we may as
   -- well just forget the fact that n ≥ 37 because we're not going to use it.
   rintro n -,
@@ -254,13 +254,13 @@ begin
   -- and a proof that it is positive. Let's first give `hl` the
   -- real number `ε/2` once and for all (it's the only time we'll 
   -- be using `hl` in the proof so we can change its definition)
-  specialize hl (ε/2),
+  --specialize hl (ε/2),
   -- Now `hl` is a function which wants a proof by `ε/2>0` as its input.
   -- Mathematically, this is obvious: `ε/2=(m-l)/2` and `l < m`. 
   -- Lean's `linarith` (linear arithmetic) tactic can solve this sort of goal:
   have hε2 : ε/2 > 0 := by linarith,
   -- Now we can specialize `hl` further:
-  specialize hl hε2,
+  specialize hl (ε / 2) hε2,
   -- Now `hl` isn't a function any more. In the lingo, it's an inductive
   -- type rather than a pi type. 
   -- `hl : ∃ (N : ℕ), ∀ (n : ℕ), n ≥ N → |a n - l| < ε / 2`
@@ -282,12 +282,12 @@ begin
   -- these proofs by using `library_search` and then clicking on "Try this!".
   -- For example
   -- `have hLN : L ≤ N := by library_search`,
-  have hLN : L ≤ N := le_max_left L M,
-  have hMN : M ≤ N := le_max_right L M,
+  --have hLN : L ≤ N := le_max_left L M,
+  --have hMN : M ≤ N := le_max_right L M,
   -- We're going to set `n = N` in `hL` and `hM`. Again I'm thinking
   -- of these things as functions.
-  specialize hL N hLN,
-  specialize hM N hMN,
+  specialize hL N (le_max_left  L M),
+  specialize hM N (le_max_right L M),
   -- It looks like we should be done now: everything should follow
   -- now from chasing inequalities. We need to give Lean one more hint
   -- though, because `linarith` doesn't know anything about the `abs` function;
@@ -310,7 +310,7 @@ the max of `A` and `B`. `max` is a definition, not a theorem, so
 that means that there will be an API associated with it, i.e. 
 a list of little theorems which make `max` possible to use.
 We just saw the two important theorems which we'll be using:
-`le_max_left A B : A ≤ max A B` and
+`le_max_left  A B : A ≤ max A B` and
 `le_max-right A B : B ≤ max A B`.
 
 There are other cool functions in the `max` API, for example
@@ -321,10 +321,7 @@ of the theorems are! For example what do you think
 If you can't work it out, then cheat by running
 
 ```
-example (A B C : ℝ) : max A B < C ↔ A < C ∧ B < C :=
-begin
-  library_search
-end
+example (A B C : ℝ) : max A B < C ↔ A < C ∧ B < C := max_lt_iff
 ```
 
 2) `specialize` is a tactic which changes a function by fixing once and
@@ -471,19 +468,38 @@ looking at what happens when we change a sequence or limit by adding a constant.
 lemma is_limit_add_const {a : ℕ → ℝ} {l : ℝ} (c : ℝ) (ha : is_limit a l) :
   is_limit (λ i, a i + c) (l + c) :=
 begin
-  sorry
+  intros ε hε,
+  dsimp,
+  specialize ha ε hε,
+  cases ha with n ha,
+  use n,
+  intros m hm,
+  specialize ha m hm,
+  rw abs_lt at *,
+  split, { linarith, }, { linarith, },
 end
 
 lemma is_limit_add_const_iff {a : ℕ → ℝ} {l : ℝ} (c : ℝ) :
   is_limit a l ↔ is_limit (λ i, a i + c) (l + c) :=
 begin
-  sorry,
+  split, {    
+    exact is_limit_add_const c,
+  }, {
+    intro h,
+    convert is_limit_add_const (-c) h, {
+      ext, ring,
+    }, {
+      ring,
+    }
+  }
 end
 
 lemma is_limit_iff_is_limit_sub_eq_zero (a : ℕ → ℝ) (l : ℝ) :
   is_limit a l ↔ is_limit (λ i, a i - l) 0 :=
 begin
-  sorry,
+  convert is_limit_add_const_iff (-l),
+    {ext, ring, },
+    {ring, },
 end
 
 /-
@@ -502,10 +518,29 @@ Good luck!
 -/
 
 theorem is_limit_add {a b : ℕ → ℝ} {l m : ℝ}
-  (h1 : is_limit a l) (h2 : is_limit b m) :
+  (ha : is_limit a l) (hb : is_limit b m) :
   is_limit (a + b) (l + m) :=
 begin
-  sorry,
+  intros ε hε,
+  have hε2 : ε/2 > 0 := by linarith,
+  specialize ha (ε / 2) hε2,
+  specialize hb (ε / 2) hε2,
+
+  cases ha with Na ha,
+  cases hb with Nb hb,
+  set Nc := max Na Nb with hNc,
+
+  use Nc,
+  intros n hnc,
+
+  specialize ha n (ge_trans hnc (le_max_left  Na Nb)),
+  specialize hb n (ge_trans hnc (le_max_right Na Nb)),
+
+  --have q : Na - (Nb + Nc) = Na - Nb - Nc := (nat.sub_sub Na Nb Nc).symm,
+  calc |(a + b) n - (l + m)| = |a n + b n - (l + m)| : by rw pi.add_apply
+  ... = |(a n - l) + (b n - m)| : by ring
+  ... ≤ |a n - l| + |b n - m| : abs_add _ _
+  ... < ε : by linarith
 end
 
 -- We have proved `is_limit` behaves well under `+`. If we also
@@ -525,19 +560,49 @@ end
 -- can start with 
 -- `by_cases hc : c = 0`
 
+example (a : ℝ) (ha : a ≠ 0) : a / a = 1 := by rw [div_self ha]
+example (a : ℝ) (ha : a > 0) : a ≠ 0 := ne_of_gt ha
+
 lemma is_limit_mul_const_left {a : ℕ → ℝ} {l c : ℝ} (h : is_limit a l) :
   is_limit (λ n, c * (a n)) (c * l) :=
 begin
-  sorry,
+  by_cases hc : c = 0, {
+    subst hc,
+    convert is_limit_const 0, {
+      ext, ring,
+    }, { 
+      ring 
+    }
+  }, {
+    replace hc : 0 < |c| := by rwa abs_pos,
+    intros ε hε,
+    --have q : ε / |c| > 0 := div_pos hε hc,
+    specialize h (ε / |c|) (div_pos hε hc),
+    cases h with N h,
+    use N,
+    intros n hn,
+    specialize h n hn,
+    dsimp only,
+    
+    rw [← mul_sub, abs_mul],
+    rwa ← lt_div_iff' hc,
+    
+    -- calc |c * a n - c * l| = |c * (a n - l)| : by ring
+    -- ... = |c| * |a n - l| : abs_mul _ _
+    -- ... < |c| * (ε / |c|) : (mul_lt_mul_left hc).mpr h
+    -- ... = (|c| * ε) / |c| : mul_div_assoc' _ _ _
+    -- ... = (ε * |c|) / |c| : by rw mul_comm
+    -- ... = ε * (|c| / |c|) : by rw mul_div_assoc
+    -- ... = ε * 1 : by rw div_self (ne_of_gt hc)
+    -- ... = ε : by ring
+  }
 end
 
 -- This should just be a couple of lines now.
 lemma is_limit_linear (a : ℕ → ℝ) (b : ℕ → ℝ) (α β c d : ℝ) 
     (ha : is_limit a α) (hb : is_limit b β) : 
-    is_limit ( λ n, c * (a n) + d * (b n) ) (c * α + d * β) :=
-begin
-  sorry,
-end
+    is_limit ( λ n, c * (a n) + d * (b n) ) (c * α + d * β) 
+:= is_limit_add (is_limit_mul_const_left ha) (is_limit_mul_const_left hb)
 
 
 -- We need the below result to prove that product of limits is limit
@@ -545,10 +610,29 @@ end
 -- Rather than using `√ε`, just choose `N` large enough such that `|a n| ≤ ε`
 -- and `|b n| ≤ 1` if `n ≥ N`; this will work.
 
+example (a : ℝ) : 0 ≤ |a| := abs_nonneg a
+
 lemma is_limit_mul_eq_zero_of_is_limit_eq_zero {a : ℕ → ℝ} {b : ℕ → ℝ}
   (ha : is_limit a 0) (hb : is_limit b 0) : is_limit (a * b) 0 :=
 begin
-  sorry,
+  intros ε hε,
+  specialize ha ε hε,
+  specialize hb 1 zero_lt_one,
+
+  cases ha with Na ha,
+  cases hb with Nb hb,
+  set Nc := max Na Nb with hNc,
+
+  use Nc,
+  intros n hnc,
+
+  specialize ha n (ge_trans hnc (le_max_left  Na Nb)),
+  specialize hb n (ge_trans hnc (le_max_right Na Nb)),
+
+  rw sub_zero at *,
+  rw [pi.mul_apply, abs_mul],
+  convert mul_lt_mul'' ha hb (abs_nonneg (a n)) (abs_nonneg (b n)), 
+  { ring },
 end
 
 -- The limit of the product is the product of the limits.
@@ -558,27 +642,79 @@ end
 -- (note: this multiplies out to `a i * b i - l * m`)
 -- and then prove that all three terms in the sum tend to zero.
 theorem is_limit_mul (a : ℕ → ℝ) (b : ℕ → ℝ) (l m : ℝ)
-  (h1 : is_limit a l) (h2 : is_limit b m) :
+  (ha : is_limit a l) (hb : is_limit b m) :
   is_limit (a * b) (l * m) :=
 begin
-  sorry,
+  rw is_limit_iff_is_limit_sub_eq_zero at *,
+  suffices : is_limit (λ i, (a i - l) * (b i - m) + (l * (b i - m)) + m * (a i - l)) 0, {
+    convert this,
+    ext,
+    rw pi.mul_apply,
+    ring,
+  }, {
+    have hx : is_limit (λ i, (a i - l) * (b i - m)) 0 := is_limit_mul_eq_zero_of_is_limit_eq_zero ha hb,
+    have hy : is_limit (λ i, l * (b i - m)) 0 := begin
+      convert is_limit_mul_const_left hb,
+      ring,
+    end,
+    have hz : is_limit (λ i, m * (a i - l)) 0 := begin
+      convert is_limit_mul_const_left ha,
+      ring,
+    end,
+    convert is_limit_add (is_limit_add hx hy) hz,
+    ring,
+  }
 end
 
 
 -- If aₙ → l and bₙ → m, and aₙ ≤ bₙ for all n, then l ≤ m
 theorem is_limit_le_of_le (a : ℕ → ℝ) (b : ℕ → ℝ)
-  (l : ℝ) (m : ℝ) (hl : is_limit a l) (hm : is_limit b m) 
+  (l : ℝ) (m : ℝ) (ha : is_limit a l) (hb : is_limit b m) 
   (hle : ∀ n, a n ≤ b n) : l ≤ m :=
 begin
-  sorry,
+  apply le_of_not_lt,
+  intro hml,
+
+  set ε := (l - m) / 2 with hε,
+  have hε' : 0 < ε := by linarith,
+
+  cases (ha ε hε') with Na ha,
+  cases (hb ε hε') with Nb hb,
+  set N := max Na Nb with hNc,
+
+  specialize ha N (le_max_left  Na Nb),
+  specialize hb N (le_max_right Na Nb),
+  replace hle := hle N,
+
+  rw abs_lt at *,
+  linarith,
 end
+
 
 -- sandwich
 theorem sandwich (a b c : ℕ → ℝ)
   (l : ℝ) (ha : is_limit a l) (hc : is_limit c l) 
   (hab : ∀ n, a n ≤ b n) (hbc : ∀ n, b n ≤ c n) : is_limit b l :=
 begin
-  sorry,
+  intros ε hε,
+
+  cases (ha ε hε) with Na ha,
+  cases (hc ε hε) with Nc hc,
+  set N := max Na Nc with hN,
+
+  use N, intros n hn,
+
+  rw hN at hn,
+  replace hn := max_le_iff.1 hn,
+
+  specialize ha n hn.1,
+  specialize hc n hn.2,
+  specialize hab n,
+  specialize hbc n,
+
+  rw abs_lt at *,
+  split;
+  linarith,
 end
 
 
@@ -586,12 +722,37 @@ end
 -- Let's make a new definition.
 definition is_bounded (a : ℕ → ℝ) := ∃ B, ∀ n, |a n| ≤ B
 
+example {a b : ℝ} (ha : a > 0) (hb : b > 0): a / b > 0 := div_pos ha hb
+example {a b : ℝ} : |a * b| = |a| * |b|  := abs_mul a b
+example {a b c: ℝ} (a ≥ 0) (c ≥ 0) (b > c) : a * b > a * c := by library_search
+example {a b c: ℝ} (ha : a > b) (hb : b ≥ c): a > c := gt_of_gt_of_ge ha hb
+--example (1 : ℝ)  > 0 := by lib
+
 -- Now try this:
 lemma tendsto_bounded_mul_zero {a : ℕ → ℝ} {b : ℕ → ℝ}
   (hA : is_bounded a) (hB : is_limit b 0) 
   : is_limit (a*b) 0 :=
 begin
-  sorry,
+  cases hA with A hA,
+
+  set A' := max A 1 with hA',
+  have hA'pos : A' > 0 := gt_of_ge_of_gt (le_max_right A 1) zero_lt_one,
+
+  intros ε hε,
+  set ε' := ε / A' with hε',
+  cases hB (ε / A') (div_pos hε hA'pos) with N hB,
+
+  use N, intros n hn,
+  specialize hB n hn,
+  specialize hA n,
+
+  dsimp,
+  rw sub_zero at *,
+
+  calc |a n * b n| = |a n| * |b n| : by rw abs_mul
+  ... ≤ A' * |b n| : mul_le_mul_of_nonneg_right (le_max_left_of_le hA) (abs_nonneg (b n))
+  ... < A' * (ε / A') : mul_lt_mul_of_pos_left hB hA'pos
+  ... = ε : mul_div_cancel' ε (ne_of_gt hA'pos)
 end
 
 -- we can make more definitions
