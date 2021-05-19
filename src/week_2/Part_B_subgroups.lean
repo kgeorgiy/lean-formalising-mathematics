@@ -55,7 +55,7 @@ namespace subgroup
 
 open xena.group
 
--- let G be a group and let H and K be subgroups
+-- let G be a group and let H, J, and K be subgroups
 variables {G : Type} [group G] (H J K : subgroup G)
 
 /-
@@ -84,42 +84,24 @@ instance : has_coe (subgroup G) (set G) := ⟨λ H, H.carrier⟩
 -- would rather talk about `g ∈ H` than any other way of saying it.
 
 /-- `g` is in the underlying subset of `H` iff `g ∈ H`. -/
-@[simp] lemma mem_carrier {g : G} : g ∈ H.carrier ↔ g ∈ H :=
-begin
-  -- true by definition
-  refl
-end
+@[simp] lemma mem_carrier {g : G} : g ∈ H.carrier ↔ g ∈ H := by refl
 
 /-- `g` is in `H` considered as a subset of `G`, iff `g` is in `H` considered
 as subgroup of `G`. -/
-@[simp] lemma mem_coe {g : G} : g ∈ (↑H : set G) ↔ g ∈ H :=
-begin
-  -- true by definition
-  refl
-end
+@[simp] lemma mem_coe {g : G} : g ∈ (↑H : set G) ↔ g ∈ H := by refl
 
 -- Now let's define theorems without the `'`s in, which use this
 -- more natural notation
 
 /-- A subgroup contains the group's 1. -/
-theorem one_mem : (1 : G) ∈ H :=
-begin
-  apply H.one_mem',
-end
+theorem one_mem : (1 : G) ∈ H := H.one_mem'
 
 /-- A subgroup is closed under multiplication. -/
-theorem mul_mem {x y : G} : x ∈ H → y ∈ H → x * y ∈ H :=
-begin
-  -- what do you think?
-  sorry
-end
+theorem mul_mem {x y : G} : x ∈ H → y ∈ H → x * y ∈ H := by apply H.mul_mem'
+
 
 /-- A subgroup is closed under inverse -/
-theorem inv_mem {x : G} : x ∈ H → x⁻¹ ∈ H :=
-begin
-  -- what do you think?
-  sorry
-end
+theorem inv_mem {x : G} : x ∈ H → x⁻¹ ∈ H := by apply H.inv_mem'
 
 /-
 
@@ -145,7 +127,16 @@ we can make it a `simp` lemma.
 
 @[simp] theorem inv_mem_iff {x : G} : x⁻¹ ∈ H ↔ x ∈ H := 
 begin
-  sorry,
+  split, {
+    intro h,
+    rw ← inv_inv x,
+    apply H.inv_mem,
+    exact h,
+  }, {
+    --intro h,
+    apply H.inv_mem,
+    --exact h,
+  }
 end
 
 -- We could prove a bunch more theorems here. Let's just do one more.
@@ -153,7 +144,11 @@ end
 
 theorem mem_of_mem_mul_mem {x y : G} (hx : x ∈ H) (hxy : x * y ∈ H) : y ∈ H :=
 begin
-  sorry,
+  rw ← inv_mem_iff at hx,
+  convert H.mul_mem hx hxy,
+  simp,
+--  rw [← one_mul y, ← mul_left_inv x, mul_assoc x⁻¹ x y],
+--  exact H.mul_mem hx hxy,
 end
 
 /-
@@ -181,7 +176,12 @@ end
 theorem ext'_iff {H K : subgroup G} :
   H.carrier = K.carrier ↔ H = K :=
 begin
-  sorry,
+  split, {
+    exact ext',
+  }, {
+    rintro rfl, 
+    refl,
+  }
 end
 
 -- to do this next one, first apply the `ext'` theorem we just proved,
@@ -190,7 +190,9 @@ end
 /-- Two subgroups are equal if they have the same elements. -/
 @[ext] theorem ext {H K : subgroup G} (h : ∀ x, x ∈ H ↔ x ∈ K) : H = K :=
 begin
-  sorry,
+  apply ext',
+  ext,
+  apply h,
 end
 
 /-
@@ -224,18 +226,10 @@ We say H ≤ K iff H.carrier ⊆ K.carrier .
 instance : has_le (subgroup G) := ⟨λ H K, H.carrier ⊆ K.carrier⟩
 
 -- useful to restate the definition so we can `rw` it
-lemma le_def : H ≤ K ↔ H.carrier ⊆ K.carrier :=
-begin
-  -- true by definition
-  refl
-end
+lemma le_def : H ≤ K ↔ H.carrier ⊆ K.carrier := by refl
 
 -- another useful variant
-lemma le_iff : H ≤ K ↔ ∀ g, g ∈ H → g ∈ K :=
-begin
-  -- true by definition
-  refl,
-end
+lemma le_iff : H ≤ K ↔ ∀ g, g ∈ H → g ∈ K := by refl
 
 
 
@@ -282,32 +276,19 @@ the axioms.
 -/
 
 /-- The intersection of two subgroups is also a subgroup -/
-def inf (H K : subgroup G) : subgroup G :=
-{ carrier := H.carrier ∩ K.carrier, -- the carrier is the intersection
-  one_mem' := 
-  begin
-    -- recall that x ∈ Y ∩ Z is _by definition_ x ∈ Y ∧ x ∈ Z, so you can `split` this. 
-    sorry,
-  end,
-  mul_mem' := 
-  begin
-    sorry,
-  end,
-  inv_mem' :=
-  begin
-    sorry,
-  end }
+def inf (H K : subgroup G) : subgroup G := { 
+  carrier := H.carrier ∩ K.carrier, -- the carrier is the intersection
+  one_mem' := ⟨H.one_mem', K.one_mem'⟩,
+  mul_mem' := λ _ _ ⟨xH, xK⟩ ⟨yH, yK⟩, ⟨H.mul_mem' xH yH, K.mul_mem' xK yK⟩,
+  inv_mem' := λ _ ⟨xH, xK⟩, ⟨H.inv_mem' xH, K.inv_mem' xK⟩
+}  
 
 -- Notation for `inf` in computer science circles is ⊓ .
 
 instance : has_inf (subgroup G) := ⟨inf⟩
 
 /-- The underlying set of the inf of two subgroups is just their intersection -/
-lemma inf_def (H K : subgroup G) : (H ⊓ K : set G) = (H : set G) ∩ K :=
-begin
-  -- true by definition
-  refl
-end
+lemma inf_def (H K : subgroup G) : (H ⊓ K : set G) = (H : set G) ∩ K := by refl
 
 /-
 
@@ -359,16 +340,18 @@ containing the set
 -/
 
 /-- The Inf of a set of subgroups of G is their intersection. -/
-def Inf (X : set (subgroup G)) : subgroup G :=
-{ carrier := ⋂ K ∈ X, (K : set G), -- carrier is the intersection of the underlying sets
-  one_mem' := begin
-    sorry,
-  end,
+def Inf (X : set (subgroup G)) : subgroup G := { 
+  carrier := ⋂ K ∈ X, (K : set G), -- carrier is the intersection of the underlying sets
+  one_mem' := mem_bInter (λ x _, one_mem' x),
   mul_mem' := begin
-    sorry,
+    intros _ _ xI yI,
+    rw mem_bInter_iff at *,
+    exact λ K KX, K.mul_mem (xI K KX) (yI K KX),
   end,
   inv_mem' := begin
-    sorry,
+    intros _ xI,
+    rw mem_bInter_iff at *,
+    exact λ K KX, K.inv_mem (xI K KX),
   end,
 }
 
@@ -424,32 +407,56 @@ so you can just start this with `intro g`.
 -/
 lemma subset_closure (S : set G) : S ⊆ ↑(closure S) :=
 begin
-  sorry,
+  intros g gS,
+  rw [mem_coe, mem_closure_iff], 
+  exact λ H SH, SH gS,
 end
 
 -- It's useful to know `subset.trans : X ⊆ Y → Y ⊆ Z → X ⊆ Z`
 lemma closure_mono {S T : set G} (hST : S ⊆ T) : closure S ≤ closure T :=
 begin
-  sorry,
+  intros x xS,
+  rw [mem_carrier, mem_closure_iff] at *,
+  exact λ H TH, xS H (subset.trans hST TH),
 end
 
 -- not one of the axioms, but sometimes handy
 lemma closure_le (S : set G) (H : subgroup G) : closure S ≤ H ↔ S ⊆ ↑H :=
 begin
-  sorry,
+  split, {
+    exact λ hSH, subset.trans (subset_closure S) hSH,
+  }, {
+    intros hSH _ hgCS,
+    rw [mem_carrier, mem_closure_iff] at hgCS,
+    exact hgCS H hSH,
+  }
 end
 
 -- You can start this one by applying `le_antisymm`,
 lemma closure_closure (S : set G) : closure S = closure (closure S) :=
 begin
-  sorry,
+  apply le_antisymm, {
+    apply subset_closure,
+  }, {
+    rw closure_le,
+    exact λ _ hg, hg,
+  }
 end
+
+example {α : Type} { A : set α} : A ⊆ A := rfl.subset
 
 -- This shows that every subgroup is the closure of something, namely its
 -- underlying subset. 
 lemma closure_self {H : subgroup G} : closure ↑H = H :=
 begin
-  sorry,
+  apply le_antisymm, {
+    rw le_iff,
+    intros g,
+    rw mem_closure_iff,
+    refine λ h, h H rfl.subset,
+  }, {
+    exact subset_closure H,
+  }
 end
 
 /-
@@ -491,7 +498,7 @@ begin
   -- Our hypothesis HS is just that S ⊆ ↑H, by definition
   change S ⊆ ↑H at HS, 
   -- I think you can take it from here!
-  sorry,
+  rwa closure_le,
 end
 
 /-
